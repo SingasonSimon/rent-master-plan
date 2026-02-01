@@ -253,12 +253,14 @@ import { PaymentManagement } from '@/components/admin/PaymentManagement';
 import { MaintenanceManagement } from '@/components/admin/MaintenanceManagement';
 import { MessagesManagement } from '@/components/admin/MessagesManagement';
 import { SettingsManagement } from '@/components/admin/SettingsManagement';
+import DashboardAnalytics from '@/components/analytics/DashboardAnalytics';
 
 export default function AdminDashboard() {
   return (
     <DashboardLayout navItems={adminNavItems} title="Admin Dashboard">
       <Routes>
         <Route index element={<DashboardHome />} />
+        <Route path="analytics" element={<DashboardAnalytics />} />
         <Route path="users/*" element={<UserManagement />} />
         <Route path="properties/*" element={<PropertyManagement />} />
         <Route path="applications/*" element={<ApplicationManagement />} />

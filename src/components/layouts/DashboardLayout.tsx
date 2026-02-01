@@ -27,6 +27,7 @@ import {
   X,
   Bell,
   ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -190,6 +191,7 @@ export function DashboardLayout({ children, navItems, title }: DashboardLayoutPr
 // Pre-configured navigation items for each role
 export const adminNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Users', href: '/admin/users', icon: Users },
   { label: 'Properties', href: '/admin/properties', icon: Building2 },
   { label: 'Applications', href: '/admin/applications', icon: FileText },
@@ -202,6 +204,7 @@ export const adminNavItems: NavItem[] = [
 
 export const landlordNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/landlord', icon: LayoutDashboard },
+  { label: 'Analytics', href: '/landlord/analytics', icon: BarChart3 },
   { label: 'Properties', href: '/landlord/properties', icon: Building2 },
   { label: 'Applications', href: '/landlord/applications', icon: FileText },
   { label: 'Leases', href: '/landlord/leases', icon: FileText },
