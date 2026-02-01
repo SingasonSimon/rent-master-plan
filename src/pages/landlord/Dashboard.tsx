@@ -24,6 +24,7 @@ import LandlordLeases from '@/components/landlord/LandlordLeases';
 import LandlordPayments from '@/components/landlord/LandlordPayments';
 import LandlordMaintenance from '@/components/landlord/LandlordMaintenance';
 import LandlordMessages from '@/components/landlord/LandlordMessages';
+import DashboardAnalytics from '@/components/analytics/DashboardAnalytics';
 
 function DashboardHome() {
   const { user } = useAuth();
@@ -204,6 +205,7 @@ export default function LandlordDashboard() {
     <DashboardLayout navItems={landlordNavItems} title="Landlord Dashboard">
       <Routes>
         <Route index element={<DashboardHome />} />
+        <Route path="analytics" element={<DashboardAnalytics />} />
         <Route path="properties/*" element={<LandlordProperties />} />
         <Route path="applications/*" element={<LandlordApplications />} />
         <Route path="leases/*" element={<LandlordLeases />} />
