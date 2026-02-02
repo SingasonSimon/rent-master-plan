@@ -138,7 +138,10 @@ export function UserManagement() {
       const response = await userApi.delete(deletingUser.id);
       if (response.success) {
         setUsers(users.filter((u) => u.id !== deletingUser.id));
-        toast({ title: 'User deleted', description: 'User has been removed from the system.' });
+        toast({ 
+          title: 'User deleted', 
+          description: 'User and all related data (applications, leases, maintenance requests, messages) have been removed from the system.' 
+        });
       }
     }
     setIsDeleteDialogOpen(false);

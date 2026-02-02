@@ -24,18 +24,6 @@ import type {
   PropertyFilters,
 } from '@/types';
 
-import {
-  mockUsers,
-  mockProperties,
-  mockUnits,
-  mockApplications,
-  mockLeases,
-  mockPayments,
-  mockMaintenanceRequests,
-  mockMessages,
-  mockActivities,
-} from './mock-data';
-
 // Configuration
 const SIMULATED_DELAY = 500; // Simulate network latency
 
@@ -57,19 +45,34 @@ const STORAGE_KEYS = {
   AUTH_USER: 'rentease_auth_user',
 };
 
-// Initialize Storage with Mock Data if empty
+// Initialize Storage with Dynamic Data if empty
 const initializeStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mockUsers));
-    localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(mockProperties));
-    localStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify(mockUnits));
-    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(mockApplications));
-    localStorage.setItem(STORAGE_KEYS.LEASES, JSON.stringify(mockLeases));
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(mockPayments));
-    localStorage.setItem(STORAGE_KEYS.MAINTENANCE, JSON.stringify(mockMaintenanceRequests));
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(mockMessages));
-    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(mockActivities));
-    console.log('LocalStorage initialized with mock data');
+    // Create only essential admin user dynamically
+    const adminUser: User = {
+      id: 'admin-001',
+      email: 'admin@rentease.co.ke',
+      firstName: 'System',
+      lastName: 'Administrator',
+      phone: '+254 700 000 000',
+      role: 'admin',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Start with empty arrays - all data will be created through UI
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([adminUser]));
+    localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.UNITS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.LEASES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.MAINTENANCE, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify([]));
+    
+    console.log('LocalStorage initialized with dynamic data - only admin user created');
   }
 };
 
@@ -77,6 +80,15 @@ const initializeStorage = () => {
 if (typeof window !== 'undefined') {
   initializeStorage();
 }
+
+// Clear all data (for testing/reset purposes)
+export const clearAllData = () => {
+  Object.values(STORAGE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
+  initializeStorage();
+  console.log('All data cleared and reinitialized');
+};
 
 // Generic Storage Get
 const getFromStorage = <T>(key: string): T[] => {
@@ -263,9 +275,98 @@ export const usersApi = {
 
   delete: async (id: string): Promise<ApiResponse<null>> => {
     await delay(SIMULATED_DELAY);
+    
+    // Get user details first to determine role
     const users = getFromStorage<User>(STORAGE_KEYS.USERS);
-    const filtered = users.filter(u => u.id !== id);
-    saveToStorage(STORAGE_KEYS.USERS, filtered);
+    const userToDelete = users.find(u => u.id === id);
+    
+    if (!userToDelete) {
+      return { success: false, message: 'User not found', data: null };
+    }
+
+    // 1. Delete the user
+    const filteredUsers = users.filter(u => u.id !== id);
+    saveToStorage(STORAGE_KEYS.USERS, filteredUsers);
+
+    // 2. Delete user's applications
+    const applications = getFromStorage<Application>(STORAGE_KEYS.APPLICATIONS);
+    const filteredApplications = applications.filter(a => a.tenantId !== id);
+    saveToStorage(STORAGE_KEYS.APPLICATIONS, filteredApplications);
+
+    // 3. Delete user's leases and update unit status
+    const leases = getFromStorage<Lease>(STORAGE_KEYS.LEASES);
+    const userLeases = leases.filter(l => l.tenantId === id);
+    const filteredLeases = leases.filter(l => l.tenantId !== id);
+    
+    // Update units to available when tenant's leases are deleted
+    if (userLeases.length > 0) {
+      const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);
+      const updatedUnits = units.map(unit => {
+        const hasActiveLease = userLeases.some(lease => 
+          lease.unitId === unit.id && lease.status === 'active'
+        );
+        if (hasActiveLease) {
+          return { ...unit, status: 'available' as UnitStatus, updatedAt: new Date().toISOString() };
+        }
+        return unit;
+      });
+      saveToStorage(STORAGE_KEYS.UNITS, updatedUnits);
+    }
+    
+    saveToStorage(STORAGE_KEYS.LEASES, filteredLeases);
+
+    // 4. Delete user's maintenance requests
+    const maintenance = getFromStorage<MaintenanceRequest>(STORAGE_KEYS.MAINTENANCE);
+    const filteredMaintenance = maintenance.filter(m => m.tenantId !== id);
+    saveToStorage(STORAGE_KEYS.MAINTENANCE, filteredMaintenance);
+
+    // 5. Delete user's messages (both sent and received)
+    const messages = getFromStorage<Message>(STORAGE_KEYS.MESSAGES);
+    const filteredMessages = messages.filter(m => m.senderId !== id && m.receiverId !== id);
+    saveToStorage(STORAGE_KEYS.MESSAGES, filteredMessages);
+
+    // 6. If user is a landlord, handle their properties
+    if (userToDelete.role === 'landlord') {
+      // Delete their properties
+      const properties = getFromStorage<Property>(STORAGE_KEYS.PROPERTIES);
+      const landlordProperties = properties.filter(p => p.landlordId === id);
+      const filteredProperties = properties.filter(p => p.landlordId !== id);
+      saveToStorage(STORAGE_KEYS.PROPERTIES, filteredProperties);
+
+      // Delete units belonging to their properties
+      const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);
+      const landlordPropertyIds = landlordProperties.map(p => p.id);
+      const filteredUnits = units.filter(u => !landlordPropertyIds.includes(u.propertyId));
+      saveToStorage(STORAGE_KEYS.UNITS, filteredUnits);
+
+      // Delete applications for those units
+      const landlordUnitIds = filteredUnits.filter(u => landlordPropertyIds.includes(u.propertyId)).map(u => u.id);
+      const finalApplications = filteredApplications.filter(a => !landlordUnitIds.includes(a.unitId));
+      saveToStorage(STORAGE_KEYS.APPLICATIONS, finalApplications);
+
+      // Delete maintenance requests for those units
+      const finalMaintenance = filteredMaintenance.filter(m => !landlordUnitIds.includes(m.unitId));
+      saveToStorage(STORAGE_KEYS.MAINTENANCE, finalMaintenance);
+
+      // Delete leases for those units
+      const finalLeases = filteredLeases.filter(l => !landlordUnitIds.includes(l.unitId));
+      saveToStorage(STORAGE_KEYS.LEASES, finalLeases);
+    }
+
+    // 7. Clean up activities related to this user
+    const activities = getFromStorage<Activity>(STORAGE_KEYS.ACTIVITIES);
+    const filteredActivities = activities.filter(a => a.userId !== id);
+    saveToStorage(STORAGE_KEYS.ACTIVITIES, filteredActivities);
+
+    // 8. Remove from auth if currently logged in
+    const currentUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    if (currentUser) {
+      const parsed = JSON.parse(currentUser) as AuthUser;
+      if (parsed.id === id) {
+        localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+      }
+    }
+
     return { success: true, data: null };
   },
 };

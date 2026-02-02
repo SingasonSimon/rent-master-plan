@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { CreditCard, Mail, Bell, Shield, Building2, Settings } from 'lucide-react';
+import { CreditCard, Mail, Bell, Shield, Building2, Settings, Database, Trash2 } from 'lucide-react';
+import { generateSampleData } from '@/lib/data-generator';
+import { clearAllData } from '@/lib/api';
 
 export function SettingsManagement() {
   const { toast } = useToast();
@@ -63,6 +65,32 @@ export function SettingsManagement() {
       title: 'Notification Settings Saved',
       description: 'Notification preferences have been updated.',
     });
+  };
+
+  const handleGenerateSampleData = async () => {
+    const success = await generateSampleData();
+    if (success) {
+      toast({
+        title: 'Sample Data Generated',
+        description: 'Sample landlords, tenants, properties, and units have been created successfully.',
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to generate sample data. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleClearAllData = () => {
+    if (confirm('Are you sure you want to clear ALL data? This action cannot be undone and will remove everything except the admin user.')) {
+      clearAllData();
+      toast({
+        title: 'Data Cleared',
+        description: 'All data has been cleared. Only the admin user remains.',
+      });
+    }
   };
 
   return (
@@ -429,6 +457,51 @@ export function SettingsManagement() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">Data Management</h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Card className="border-dashed">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Database className="h-8 w-8 text-primary" />
+                        <div className="flex-1">
+                          <p className="font-medium">Generate Sample Data</p>
+                          <p className="text-sm text-muted-foreground">Create sample landlords, tenants, properties, and units for testing</p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleGenerateSampleData}
+                        className="mt-3 w-full"
+                        variant="outline"
+                      >
+                        Generate Data
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border-dashed border-destructive/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Trash2 className="h-8 w-8 text-destructive" />
+                        <div className="flex-1">
+                          <p className="font-medium text-destructive">Clear All Data</p>
+                          <p className="text-sm text-muted-foreground">Remove all data except admin user</p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleClearAllData}
+                        className="mt-3 w-full"
+                        variant="destructive"
+                      >
+                        Clear Data
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
 

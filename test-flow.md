@@ -1,43 +1,62 @@
-# Rent Master Plan - Prototype Test Flow
+# Rent Master Plan - Dynamic Prototype Test Flow
 
-This document demonstrates the complete working flow for the rent management prototype.
+This document demonstrates the complete working flow for the **dynamic** rent management prototype with **zero hardcoded data**.
 
-## Test Users Available
+## Initial Setup
 
-### Admin
-- **Email**: admin@rentease.co.ke
-- **Password**: any (6+ characters)
-- **Role**: Can see all applications, approve them, and create leases automatically
+### 1. Start Fresh
+- The system starts with only **1 admin user**: `admin@rentease.co.ke`
+- All other data (properties, units, users) is created dynamically through the UI
 
-### Landlords
-- **Email**: peter.kamau@gmail.com
-- **Password**: any (6+ characters)
-- **Role**: Can see applications for their properties and recommend/reject them
+### 2. Generate Sample Data (Optional)
+1. **Login as Admin**
+2. Go to **Settings → System → Data Management**
+3. Click **"Generate Sample Data"** to create:
+   - 2 Landlords with properties
+   - 2 Tenants
+   - 3 Properties with multiple units
+   - Sample applications and maintenance requests
 
-- **Email**: mary.wanjiku@gmail.com  
-- **Password**: any (6+ characters)
-- **Role**: Can see applications for their properties and recommend/reject them
+### 3. Start from Scratch
+1. **Login as Admin** 
+2. Go to **Settings → System → Data Management**
+3. Click **"Clear All Data"** to reset everything except admin user
 
-### Tenants
-- **Email**: john.ochieng@gmail.com
-- **Password**: any (6+ characters)
-- **Role**: Can apply for listings, create maintenance requests, send messages
+## Dynamic User Creation
+
+### Create Landlords
+1. **Login as Admin**
+2. Go to **Users → Add User**
+3. Create landlords with role "landlord"
+4. Landlords can then log in and add their own properties
+
+### Create Tenants  
+1. **Login as Admin** OR enable public registration
+2. Go to **Users → Add User**
+3. Create tenants with role "tenant"
+4. Tenants can then log in, browse properties, and apply
 
 ## Complete Flow Test
 
-### 1. Application Flow
-1. **Login as Tenant** (john.ochieng@gmail.com)
+### 1. Property Setup Flow
+1. **Login as Landlord**
+   - Go to "Properties" section
+   - Add new properties with details
+   - Add units to each property (rent amount, deposit, etc.)
+   - Set unit status to "available"
+
+### 2. Application Flow
+1. **Login as Tenant**
    - Browse available listings
    - Apply for a property
    - Fill application form with employment details, income, etc.
 
-2. **Login as Landlord** (peter.kamau@gmail.com)
+2. **Login as Landlord**
    - Go to "Applications" section
-   - See the tenant's application
+   - See the tenant's application for their properties
    - Click "Recommend" or "Not Recommend" with notes
-   - Add comments if needed
 
-3. **Login as Admin** (admin@rentease.co.ke)
+3. **Login as Admin**
    - Go to "Applications" section
    - See all applications with landlord recommendations
    - Click "Approve" on recommended applications
@@ -48,7 +67,7 @@ This document demonstrates the complete working flow for the rent management pro
    - See the active lease agreement
    - View lease terms, rent amount, payment schedule
 
-### 2. Maintenance Request Flow
+### 3. Maintenance Request Flow
 1. **Login as Tenant**
    - Go to "Maintenance" section
    - Create new maintenance request
@@ -61,18 +80,30 @@ This document demonstrates the complete working flow for the rent management pro
    - Update status (Open → In Progress → Completed)
    - Add comments/updates
 
-3. **Login as Admin** (optional)
-   - Can see all maintenance requests across all properties
-   - Can update status and add comments
-
-### 3. Messaging Flow
+### 4. Messaging Flow
 1. **Any user can send messages**
    - Go to "Messages" section
    - Compose new message to any other user
    - Messages are stored in localStorage and appear in recipient's inbox
 
+### 5. User Deletion Flow (Data Integrity)
+1. **Login as Admin**
+   - Go to "Users" section in admin dashboard
+   - Select any user and click "Delete"
+   - **✅ All related data is automatically cleaned up:**
+     - User's applications are deleted
+     - User's leases are deleted and units become available again
+     - User's maintenance requests are deleted
+     - User's messages (sent and received) are deleted
+     - If landlord: All their properties, units, and related data are deleted
+     - User's activity logs are cleaned up
+     - User is logged out if currently active
+
 ## Key Features Working
 
+✅ **Zero Hardcoded Data**: Everything created dynamically through UI
+✅ **Dynamic Data Generation**: One-click sample data creation for testing
+✅ **Complete Data Reset**: Clear all data except admin user
 ✅ **Authentication**: Login/logout with role-based access control
 ✅ **Application Process**: Complete flow from application to lease creation
 ✅ **Landlord Recommendations**: Landlords can recommend/reject applications
@@ -82,20 +113,40 @@ This document demonstrates the complete working flow for the rent management pro
 ✅ **Messaging**: Basic messaging system between users
 ✅ **Dashboard Stats**: Real-time statistics for each role
 ✅ **Data Persistence**: All data stored in localStorage
+✅ **Cascading Deletes**: Complete data cleanup when users are deleted
+✅ **Data Integrity**: Unit status updates when leases are deleted
 
 ## Technical Implementation
 
 - **Backend**: Mock API using localStorage for data persistence
+- **Dynamic Data**: No hardcoded mock data - everything created through UI
 - **API Delays**: 500ms simulated network latency for realistic feel
 - **Data Relationships**: Proper foreign key relationships between users, properties, units, applications, leases, etc.
 - **Role-based Access**: Different dashboards and permissions for admin/landlord/tenant roles
 - **Automatic Workflows**: Lease creation on application approval, unit status updates, etc.
 
+## Database Options (If you want real DB)
+
+### Option 1: Enhanced localStorage (Current)
+✅ **Pros**: Simple, no setup, works offline
+❌ **Cons**: Limited to single browser, not scalable
+
+### Option 2: In-Browser SQL Database
+- **DuckDB-WASM** or **SQL.js**
+✅ **Pros**: Real SQL, complex queries, ACID compliance
+❌ **Cons**: Browser storage limits, learning curve
+
+### Option 3: Cloud Database (No Backend)
+- **Firebase** or **Supabase**
+✅ **Pros**: Real database, multi-user, cloud sync
+❌ **Cons**: Internet required, account setup
+
 ## How to Test
 
-1. Open the browser preview
-2. Follow the flow steps above
-3. Use different browser tabs or incognito windows to test multiple users simultaneously
-4. All data persists across page refreshes (localStorage)
+1. **Clear existing data**: Admin → Settings → System → Clear All Data
+2. **Generate sample data**: Admin → Settings → System → Generate Sample Data
+3. **Follow the flow steps** above
+4. **Use different browser tabs** to test multiple users simultaneously
+5. **Test data integrity**: Delete users and verify cleanup
 
-The prototype is now fully functional for client demonstrations!
+The prototype is now **truly dynamic** with zero hardcoded data - perfect for client demonstrations!
