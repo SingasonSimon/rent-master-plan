@@ -36,7 +36,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/mock-data';
-import { unitApi, applicationApi } from '@/lib/api';
+import { unitApi, applicationApi, userApi } from '@/lib/api';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,7 +83,15 @@ interface UnitWithProperty {
     description: string;
     imageUrls: string[];
     amenities: string[];
+    landlordId: string;
   };
+  landlord?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  } | null;
 }
 
 export default function TenantListings() {
@@ -118,19 +126,27 @@ export default function TenantListings() {
     const fetchUnits = async () => {
       setIsLoading(true);
       try {
-        // We can pass filters to the API, or filter client side.
-        // For the prototype polish, let's fetch all available and filter client side
-        // to match the existing behavior of 'filteredUnits' useMemo below.
-        // But wait, unitApi.getAvailable ALREADY filters by status='available'.
         const res = await unitApi.getAvailable();
         if (res.data) {
-          // Transform API data to match component's expected interface if needed
-          // The API returns Unit & { property: Property }, which matches UnitWithProperty interface structure mostly.
-          // We just need to ensure amenities/imageUrls are handled if they are missing or different types.
-          const mapped = res.data.map(u => ({
-            ...u,
-            property: u.property // already populated
-          })) as unknown as UnitWithProperty[];
+          // Fetch all users to get landlord information
+          const usersRes = await userApi.getAll();
+          const allUsers = usersRes.data || [];
+
+          // Map units with landlord data
+          const mapped = res.data.map(u => {
+            const landlord = allUsers.find(user => user.id === u.property.landlordId);
+            return {
+              ...u,
+              property: u.property,
+              landlord: landlord ? {
+                id: landlord.id,
+                firstName: landlord.firstName,
+                lastName: landlord.lastName,
+                email: landlord.email,
+                phone: landlord.phone || '',
+              } : null
+            };
+          }) as unknown as UnitWithProperty[];
           setUnits(mapped);
         }
       } catch (error) {
