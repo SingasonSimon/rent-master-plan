@@ -13,27 +13,27 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Get redirect destination from state or default to dashboard
   const from = location.state?.from?.pathname;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     const success = await login(email, password);
-    
+
     if (success) {
       // Get the user's role-based dashboard
-      const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
+      const user = JSON.parse(localStorage.getItem('rentease_auth_user') || '{}');
       const destination = from || getDashboardPath(user.role);
       navigate(destination, { replace: true });
     }
-    
+
     setIsSubmitting(false);
   };
 
@@ -47,7 +47,7 @@ export default function Login() {
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to your RentEase account</CardDescription>
         </CardHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -62,12 +62,12 @@ export default function Login() {
                 autoComplete="email"
               />
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link 
-                  to="/forgot-password" 
+                <Link
+                  to="/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
                   Forgot password?
@@ -110,13 +110,13 @@ export default function Login() {
               <p className="mt-1 text-xs text-muted-foreground/70">Use any password (6+ chars)</p>
             </div>
           </CardContent>
-          
+
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
-            
+
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{' '}
               <Link to="/register" className="text-primary hover:underline">

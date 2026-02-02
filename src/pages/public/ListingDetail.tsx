@@ -52,7 +52,7 @@ export default function ListingDetail() {
   // Combine unit and property images
   const allImages = [...unit.imageUrls, ...property.imageUrls].filter(Boolean);
   if (allImages.length === 0) {
-    allImages.push('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800');
+    allImages.push('https://placehold.co/800x600/16a34a/ffffff?text=Listing+Details');
   }
 
   const nextImage = () => {
@@ -148,11 +148,10 @@ export default function ListingDetail() {
                       <button
                         key={index}
                         onClick={() => setCurrentImageIndex(index)}
-                        className={`h-2 w-2 rounded-full transition-all ${
-                          index === currentImageIndex
+                        className={`h-2 w-2 rounded-full transition-all ${index === currentImageIndex
                             ? 'w-6 bg-primary'
                             : 'bg-white/60 hover:bg-white/80'
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>

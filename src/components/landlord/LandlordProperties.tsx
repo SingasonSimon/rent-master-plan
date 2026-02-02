@@ -630,7 +630,7 @@ export default function LandlordProperties() {
               <Card key={property.id} className="overflow-hidden">
                 <div className="aspect-video bg-muted">
                   <img
-                    src={property.imageUrls[0] || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800'}
+                    src={property.imageUrls[0] || 'https://placehold.co/800x600/e2e8f0/64748b?text=Property'}
                     alt={property.name}
                     className="h-full w-full object-cover"
                   />
