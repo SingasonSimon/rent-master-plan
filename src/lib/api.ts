@@ -459,6 +459,11 @@ export const propertiesApi = {
 // ==================== UNITS API ====================
 
 export const unitsApi = {
+  getAll: async (): Promise<ApiResponse<Unit[]>> => {
+    await delay(SIMULATED_DELAY);
+    return { success: true, data: getFromStorage<Unit>(STORAGE_KEYS.UNITS) };
+  },
+
   getByProperty: async (propertyId: string): Promise<ApiResponse<Unit[]>> => {
     await delay(SIMULATED_DELAY);
     const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);

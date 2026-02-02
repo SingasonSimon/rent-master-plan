@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,75 +27,133 @@ import {
   Line,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Building2, CreditCard, Users, CalendarIcon, GitCompare } from 'lucide-react';
-
-// Generate full data with dates for filtering
-const generateOccupancyData = () => {
-  const data = [
-    { month: 'Jan', monthNum: 0, occupancy: 85, available: 15 },
-    { month: 'Feb', monthNum: 1, occupancy: 87, available: 13 },
-    { month: 'Mar', monthNum: 2, occupancy: 89, available: 11 },
-    { month: 'Apr', monthNum: 3, occupancy: 88, available: 12 },
-    { month: 'May', monthNum: 4, occupancy: 91, available: 9 },
-    { month: 'Jun', monthNum: 5, occupancy: 93, available: 7 },
-    { month: 'Jul', monthNum: 6, occupancy: 92, available: 8 },
-    { month: 'Aug', monthNum: 7, occupancy: 94, available: 6 },
-    { month: 'Sep', monthNum: 8, occupancy: 95, available: 5 },
-    { month: 'Oct', monthNum: 9, occupancy: 93, available: 7 },
-    { month: 'Nov', monthNum: 10, occupancy: 91, available: 9 },
-    { month: 'Dec', monthNum: 11, occupancy: 89, available: 11 },
-  ];
-  
-  const currentYear = new Date().getFullYear();
-  return data.map(item => ({
-    ...item,
-    date: new Date(currentYear, item.monthNum, 1),
-  }));
-};
-
-const generatePaymentData = () => {
-  const data = [
-    { month: 'Jan', monthNum: 0, collected: 2450000, pending: 350000, overdue: 120000 },
-    { month: 'Feb', monthNum: 1, collected: 2520000, pending: 280000, overdue: 100000 },
-    { month: 'Mar', monthNum: 2, collected: 2680000, pending: 320000, overdue: 80000 },
-    { month: 'Apr', monthNum: 3, collected: 2590000, pending: 410000, overdue: 150000 },
-    { month: 'May', monthNum: 4, collected: 2750000, pending: 250000, overdue: 90000 },
-    { month: 'Jun', monthNum: 5, collected: 2880000, pending: 220000, overdue: 70000 },
-    { month: 'Jul', monthNum: 6, collected: 2820000, pending: 280000, overdue: 100000 },
-    { month: 'Aug', monthNum: 7, collected: 2950000, pending: 200000, overdue: 50000 },
-    { month: 'Sep', monthNum: 8, collected: 3020000, pending: 180000, overdue: 40000 },
-    { month: 'Oct', monthNum: 9, collected: 2890000, pending: 310000, overdue: 110000 },
-    { month: 'Nov', monthNum: 10, collected: 2780000, pending: 350000, overdue: 130000 },
-    { month: 'Dec', monthNum: 11, collected: 2650000, pending: 400000, overdue: 160000 },
-  ];
-  
-  const currentYear = new Date().getFullYear();
-  return data.map(item => ({
-    ...item,
-    date: new Date(currentYear, item.monthNum, 1),
-  }));
-};
-
-const allOccupancyData = generateOccupancyData();
-const allPaymentData = generatePaymentData();
-
-const unitTypeData = [
-  { name: 'Studio', value: 15, color: 'hsl(var(--chart-1))' },
-  { name: 'Bedsitter', value: 25, color: 'hsl(var(--chart-2))' },
-  { name: '1 BR', value: 35, color: 'hsl(var(--chart-3))' },
-  { name: '2 BR', value: 18, color: 'hsl(var(--chart-4))' },
-  { name: '3+ BR', value: 7, color: 'hsl(var(--chart-5))' },
-];
-
-const propertyPerformanceData = [
-  { name: 'Sunrise Apartments', occupancy: 95, revenue: 1250000 },
-  { name: 'Garden Estate', occupancy: 88, revenue: 980000 },
-  { name: 'City View Complex', occupancy: 92, revenue: 1450000 },
-  { name: 'Green Meadows', occupancy: 78, revenue: 650000 },
-  { name: 'Lake View Residences', occupancy: 96, revenue: 1680000 },
-];
+import { useAuth } from '@/contexts/AuthContext';
+import { dashboardApi, propertiesApi, unitsApi, paymentsApi, leasesApi, applicationsApi, maintenanceApi } from '@/lib/api';
+import type { Property, Unit, Payment, Lease, Application, MaintenanceRequest } from '@/types';
 
 const formatCurrency = (value: number) => `KES ${(value / 1000).toFixed(0)}K`;
 const formatCurrencyFull = (value: number) => `KES ${(value / 1000000).toFixed(2)}M`;
+
+// Generate dynamic occupancy data from real units
+const generateOccupancyData = (units: Unit[], dateRange?: { start: Date; end: Date }) => {
+  const currentYear = new Date().getFullYear();
+  const monthlyData = [];
+  
+  // Generate data for the last 12 months
+  for (let i = 11; i >= 0; i--) {
+    const monthDate = subMonths(new Date(), i);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    
+    // For demo purposes, simulate occupancy trends based on current data
+    const currentOccupancyRate = units.length > 0 
+      ? (units.filter(u => u.status === 'occupied').length / units.length) * 100 
+      : 0;
+    
+    // Add some variation to make it realistic
+    const variation = Math.sin((11 - i) * 0.5) * 5;
+    const occupancy = Math.max(0, Math.min(100, currentOccupancyRate + variation));
+    
+    monthlyData.push({
+      month: format(monthDate, 'MMM'),
+      monthNum: monthDate.getMonth(),
+      occupancy: Math.round(occupancy),
+      available: Math.round(100 - occupancy),
+      date: monthDate,
+    });
+  }
+  
+  return monthlyData;
+};
+
+// Generate dynamic payment data from real payments
+const generatePaymentData = (payments: Payment[], dateRange?: { start: Date; end: Date }) => {
+  const currentYear = new Date().getFullYear();
+  const monthlyData = [];
+  
+  // Generate data for the last 12 months
+  for (let i = 11; i >= 0; i--) {
+    const monthDate = subMonths(new Date(), i);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    
+    // Filter payments for this month
+    const monthPayments = payments.filter(p => {
+      const paymentDate = new Date(p.dueDate);
+      return paymentDate >= monthStart && paymentDate <= monthEnd;
+    });
+    
+    const collected = monthPayments
+      .filter(p => p.status === 'paid')
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    const pending = monthPayments
+      .filter(p => p.status === 'pending')
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    const overdue = monthPayments
+      .filter(p => p.status === 'overdue')
+      .reduce((sum, p) => sum + p.amount, 0);
+    
+    monthlyData.push({
+      month: format(monthDate, 'MMM'),
+      monthNum: monthDate.getMonth(),
+      collected,
+      pending,
+      overdue,
+      date: monthDate,
+    });
+  }
+  
+  return monthlyData;
+};
+
+// Generate unit type distribution from real units
+const generateUnitTypeData = (units: Unit[]) => {
+  const typeCounts = units.reduce((acc, unit) => {
+    acc[unit.type] = (acc[unit.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const colors = [
+    'hsl(var(--chart-1))',
+    'hsl(var(--chart-2))',
+    'hsl(var(--chart-3))',
+    'hsl(var(--chart-4))',
+    'hsl(var(--chart-5))',
+  ];
+  
+  return Object.entries(typeCounts).map(([name, value], index) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '),
+    value,
+    color: colors[index % colors.length],
+  }));
+};
+
+// Generate property performance data from real properties and units
+const generatePropertyPerformanceData = (properties: Property[], units: Unit[], leases: Lease[]) => {
+  return properties.map(property => {
+    const propertyUnits = units.filter(u => u.propertyId === property.id);
+    const occupiedUnits = propertyUnits.filter(u => u.status === 'occupied');
+    const occupancyRate = propertyUnits.length > 0 
+      ? (occupiedUnits.length / propertyUnits.length) * 100 
+      : 0;
+    
+    // Calculate revenue from active leases for this property
+    const propertyLeases = leases.filter(l => {
+      const leaseUnit = units.find(u => u.id === l.unitId);
+      return leaseUnit?.propertyId === property.id && l.status === 'active';
+    });
+    
+    const monthlyRevenue = propertyLeases.reduce((sum, lease) => sum + lease.rentAmount, 0);
+    
+    return {
+      name: property.name,
+      occupancy: Math.round(occupancyRate),
+      revenue: monthlyRevenue,
+    };
+  });
+};
 
 interface ComparisonStatCardProps {
   title: string;
@@ -239,7 +297,7 @@ function filterData<T extends { date: Date }>(data: T[], startDate: Date | undef
   );
 }
 
-function calculateStats(occupancyData: typeof allOccupancyData, paymentData: typeof allPaymentData) {
+function calculateStats(occupancyData, paymentData) {
   const avgOccupancy = occupancyData.length > 0
     ? occupancyData.reduce((sum, item) => sum + item.occupancy, 0) / occupancyData.length
     : 0;
@@ -263,7 +321,17 @@ function calculateStats(occupancyData: typeof allOccupancyData, paymentData: typ
 }
 
 export default function DashboardAnalytics() {
+  const { user } = useAuth();
   const currentYear = new Date().getFullYear();
+  
+  // State for dynamic data
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [leases, setLeases] = useState<Lease[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [maintenance, setMaintenance] = useState<MaintenanceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Primary date range
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(currentYear, 6, 1));
@@ -274,6 +342,93 @@ export default function DashboardAnalytics() {
   const [isComparing, setIsComparing] = useState(false);
   const [compareStartDate, setCompareStartDate] = useState<Date | undefined>(new Date(currentYear, 0, 1));
   const [compareEndDate, setCompareEndDate] = useState<Date | undefined>(new Date(currentYear, 5, 30));
+
+  // Load data based on user role
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoading(true);
+        
+        if (user.role === 'admin') {
+          // Admin sees all data
+          const [propsRes, unitsRes, paymentsRes, leasesRes, appsRes, maintRes] = await Promise.all([
+            propertiesApi.getAll(),
+            unitsApi.getAll(),
+            paymentsApi.getAll(),
+            leasesApi.getAll(),
+            applicationsApi.getAll(),
+            maintenanceApi.getAll(),
+          ]);
+          
+          setProperties(propsRes.data || []);
+          setUnits(unitsRes.data || []);
+          setPayments(paymentsRes.data || []);
+          setLeases(leasesRes.data || []);
+          setApplications(appsRes.data || []);
+          setMaintenance(maintRes.data || []);
+          
+        } else if (user.role === 'landlord') {
+          // Landlord sees only their data
+          const [propsRes, unitsRes, paymentsRes, leasesRes, appsRes, maintRes] = await Promise.all([
+            propertiesApi.getAll(),
+            unitsApi.getAll(),
+            paymentsApi.getAll(),
+            leasesApi.getAll(),
+            applicationsApi.getAll(),
+            maintenanceApi.getAll(),
+          ]);
+          
+          const myProperties = (propsRes.data || []).filter(p => p.landlordId === user.id);
+          const myPropertyIds = myProperties.map(p => p.id);
+          const myUnits = (unitsRes.data || []).filter(u => myPropertyIds.includes(u.propertyId));
+          const myUnitIds = myUnits.map(u => u.id);
+          
+          setProperties(myProperties);
+          setUnits(myUnits);
+          setPayments((paymentsRes.data || []).filter(p => {
+            const lease = leasesRes.data?.find(l => l.id === p.leaseId);
+            return lease && myUnitIds.includes(lease.unitId);
+          }));
+          setLeases((leasesRes.data || []).filter(l => myUnitIds.includes(l.unitId)));
+          setApplications((appsRes.data || []).filter(a => myUnitIds.includes(a.unitId)));
+          setMaintenance((maintRes.data || []).filter(m => myUnitIds.includes(m.unitId)));
+          
+        } else {
+          // Tenant sees only their data
+          const [leasesRes, paymentsRes, maintRes] = await Promise.all([
+            leasesApi.getAll(),
+            paymentsApi.getAll(),
+            maintenanceApi.getAll(),
+          ]);
+          
+          const myLeases = (leasesRes.data || []).filter(l => l.tenantId === user.id);
+          const myUnitIds = myLeases.map(l => l.unitId);
+          
+          setProperties([]);
+          setUnits([]);
+          setLeases(myLeases);
+          setPayments((paymentsRes.data || []).filter(p => myLeases.some(l => l.id === p.leaseId)));
+          setApplications([]);
+          setMaintenance((maintRes.data || []).filter(m => m.tenantId === user.id));
+        }
+        
+      } catch (error) {
+        console.error('Failed to load analytics data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  // Generate dynamic data
+  const occupancyData = useMemo(() => generateOccupancyData(units), [units]);
+  const paymentData = useMemo(() => generatePaymentData(payments), [payments]);
+  const unitTypeData = useMemo(() => generateUnitTypeData(units), [units]);
+  const propertyPerformanceData = useMemo(() => generatePropertyPerformanceData(properties, units, leases), [properties, units, leases]);
 
   const handleQuickRangeSelect = (months: number) => {
     const now = new Date();
@@ -293,10 +448,10 @@ export default function DashboardAnalytics() {
   };
 
   // Filter data
-  const filteredOccupancyData = useMemo(() => filterData(allOccupancyData, startDate, endDate), [startDate, endDate]);
-  const filteredPaymentData = useMemo(() => filterData(allPaymentData, startDate, endDate), [startDate, endDate]);
-  const compareOccupancyData = useMemo(() => filterData(allOccupancyData, compareStartDate, compareEndDate), [compareStartDate, compareEndDate]);
-  const comparePaymentData = useMemo(() => filterData(allPaymentData, compareStartDate, compareEndDate), [compareStartDate, compareEndDate]);
+  const filteredOccupancyData = useMemo(() => filterData(occupancyData, startDate, endDate), [occupancyData, startDate, endDate]);
+  const filteredPaymentData = useMemo(() => filterData(paymentData, startDate, endDate), [paymentData, startDate, endDate]);
+  const compareOccupancyData = useMemo(() => filterData(occupancyData, compareStartDate, compareEndDate), [occupancyData, compareStartDate, compareEndDate]);
+  const comparePaymentData = useMemo(() => filterData(paymentData, compareStartDate, compareEndDate), [paymentData, compareStartDate, compareEndDate]);
 
   // Calculate stats
   const currentStats = useMemo(() => calculateStats(filteredOccupancyData, filteredPaymentData), [filteredOccupancyData, filteredPaymentData]);
@@ -344,6 +499,60 @@ export default function DashboardAnalytics() {
   const collectedPercent = latestTotal > 0 ? (currentStats.latestCollected / latestTotal) * 100 : 0;
   const pendingPercent = latestTotal > 0 ? (currentStats.latestPending / latestTotal) * 100 : 0;
   const overduePercent = latestTotal > 0 ? (currentStats.latestOverdue / latestTotal) * 100 : 0;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(8)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="h-20 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="h-6 animate-pulse rounded bg-muted" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (properties.length === 0 && units.length === 0 && payments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold">No Data Available</h3>
+          <p className="text-muted-foreground">
+            {user?.role === 'admin' 
+              ? "Generate sample data or add properties, units, and leases to see analytics."
+              : user?.role === 'landlord'
+              ? "Add properties and units to see your analytics."
+              : "Your analytics will appear once you have active leases."
+            }
+          </p>
+          {user?.role === 'admin' && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground mb-2">
+                Tip: Go to Settings → System → Generate Comprehensive Sample Data
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

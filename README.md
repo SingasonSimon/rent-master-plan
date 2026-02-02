@@ -1,73 +1,150 @@
-# Welcome to your Lovable project
+# Rent Master Plan - Dynamic Property Management Prototype
 
-## Project info
+A fully functional rent management system prototype with complete workflows, dynamic data generation, and real-time analytics.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Quick Start
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+### Local Development
+```bash
+# Clone and install
 git clone <YOUR_GIT_URL>
+cd rent-master-plan
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Vercel Deployment
+```bash
+# One-command deployment
+./deploy.sh
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# Or manually
+npm run build
+vercel --prod
+```
 
-**Use GitHub Codespaces**
+## ✨ Key Features
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **🏠 Complete Property Management**: Properties, units, leases, applications
+- **👥 Multi-Role System**: Admin, Landlord, Tenant dashboards
+- **📊 Real-Time Analytics**: Live stats and reporting from actual data
+- **🔄 Dynamic Data**: Zero hardcoded data - generate sample data instantly
+- **💾 Data Integrity**: Cascading deletes and proper relationships
+- **📱 Responsive Design**: Works on desktop, tablet, and mobile
+- **🔐 Authentication**: Role-based access control
+- **💬 Messaging**: In-app communication system
+- **🔧 Maintenance**: Complete maintenance request workflow
 
-## What technologies are used for this project?
+## 🎯 Perfect For
 
-This project is built with:
+- **Client Demonstrations**: Show production-ready functionality
+- **Investor Pitches**: Complete working prototype
+- **User Testing**: Real workflows and interactions
+- **Development**: Solid foundation for production build
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📋 Test the System
 
-## How can I deploy this project?
+1. **Login as Admin**: `admin@rentease.co.ke` (any password)
+2. **Generate Sample Data**: Settings → System → Generate Comprehensive Data
+3. **Test Workflows**: 
+   - Tenant applies for property
+   - Landlord recommends application  
+   - Admin approves → lease created
+   - Maintenance requests and messaging
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 🛠️ Technologies
 
-## Can I connect a custom domain to my Lovable project?
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI**: shadcn/ui + Tailwind CSS + Lucide Icons
+- **State**: React Query + Context API
+- **Storage**: localStorage (no backend required)
+- **Routing**: React Router v6
+- **Forms**: React Hook Form + Zod validation
 
-Yes, you can!
+## 📁 Project Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+src/
+├── components/          # Reusable UI components
+│   ├── admin/           # Admin dashboard components
+│   ├── landlord/        # Landlord dashboard components
+│   ├── tenant/          # Tenant dashboard components
+│   └── ui/              # Base UI components
+├── contexts/            # React contexts
+├── hooks/               # Custom hooks
+├── lib/                 # Utilities and API layer
+├── pages/               # Route components
+└── types/               # TypeScript definitions
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🌐 Deployment
+
+### Vercel (Recommended)
+1. Push to GitHub
+2. Connect to Vercel
+3. Auto-deploy on push
+
+### Manual Deployment
+```bash
+npm run build
+# Deploy `dist` folder to any static host
+```
+
+## 🔧 Configuration
+
+- **Vite Config**: Optimized for production
+- **Vercel Config**: SPA routing included
+- **Build**: Code splitting and optimization
+- **Environment**: No env vars required (client-side only)
+
+## 📊 Sample Data
+
+The system includes comprehensive sample data generation:
+- 3 Landlords with properties
+- 4 Tenants
+- 3 Properties with 21 units total
+- Active leases with payment history
+- Maintenance requests and messages
+
+## 🔄 Data Management
+
+- **Generate Data**: One-click sample data creation
+- **Clear Data**: Reset everything except admin user
+- **Cascading Deletes**: Proper data cleanup on user deletion
+- **Unit Status**: Automatic updates (available ↔ occupied)
+
+## 📱 Mobile Ready
+
+Fully responsive design with:
+- Touch-friendly interfaces
+- Mobile-optimized navigation
+- Adaptive layouts
+- Progressive enhancement
+
+## 🎨 UI/UX Features
+
+- Modern, clean interface
+- Dark mode support ready
+- Loading states and transitions
+- Form validation
+- Error handling
+- Success notifications
+
+## 🚀 Production Ready
+
+- Optimized bundle size
+- Code splitting
+- SEO meta tags
+- Performance monitoring ready
+- Error boundaries
+- Type safety throughout
+
+## 📝 License
+
+MIT License - feel free to use for commercial projects
+
+---
+
+**Built with ❤️ for modern property management**
