@@ -182,7 +182,6 @@ export default function TenantMessages() {
 
   const replyToMessage = (message: MessageWithSender) => {
     const senderId = message.senderId;
-    const sender = mockUsers.find((u) => u.id === senderId);
 
     setNewMessage({
       receiverId: senderId,

@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/layout/Footer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -20,16 +20,77 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { mockProperties, mockUnits, formatCurrency } from '@/lib/mock-data';
-import { useState } from 'react';
+import { formatCurrency, formatDate } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { unitApi, propertyApi } from '@/lib/api';
+import type { Unit, Property } from '@/types';
 
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [unit, setUnit] = useState<Unit | null>(null);
+  const [property, setProperty] = useState<Property | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [similarUnits, setSimilarUnits] = useState<Unit[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
 
-  const unit = mockUnits.find((u) => u.id === id);
-  const property = unit ? mockProperties.find((p) => p.id === unit.propertyId) : null;
+  useEffect(() => {
+    const loadData = async () => {
+      if (!id) return;
+      
+      try {
+        const [unitsRes, propsRes] = await Promise.all([
+          unitApi.getAll(),
+          propertyApi.getAll(),
+        ]);
+        
+        if (unitsRes.data && propsRes.data) {
+          const foundUnit = unitsRes.data.find((u) => u.id === id);
+          const foundProperty = foundUnit ? propsRes.data.find((p) => p.id === foundUnit.propertyId) : null;
+          
+          setUnit(foundUnit || null);
+          setProperty(foundProperty || null);
+          setAllProperties(propsRes.data);
+          
+          // Load similar units
+          if (foundUnit) {
+            const similar = unitsRes.data
+              .filter((u) => u.id !== foundUnit.id && u.status === 'available')
+              .slice(0, 3);
+            setSimilarUnits(similar);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load listing:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [id]);
+
+  const allImages = [...( unit?.imageUrls || []), ...(property?.imageUrls || [])];
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading listing...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!unit || !property) {
     return (
@@ -49,34 +110,6 @@ export default function ListingDetail() {
       </div>
     );
   }
-
-  // Combine unit and property images
-  const allImages = [...unit.imageUrls, ...property.imageUrls].filter(Boolean);
-  if (allImages.length === 0) {
-    allImages.push('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80');
-  }
-
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
-  };
-
-  // Get similar units
-  const similarUnits = mockUnits
-    .filter(
-      (u) =>
-        u.id !== unit.id &&
-        u.status === 'available' &&
-        (u.propertyId === unit.propertyId || u.type === unit.type)
-    )
-    .slice(0, 3)
-    .map((u) => ({
-      ...u,
-      property: mockProperties.find((p) => p.id === u.propertyId)!,
-    }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,244 +134,143 @@ export default function ListingDetail() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          className="mb-4 gap-2"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Listings
-        </Button>
-
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main Content */}
+          {/* Images */}
           <div className="lg:col-span-2">
-            {/* Image Gallery */}
-            <div className="relative mb-6 overflow-hidden rounded-xl">
-              <div className="aspect-[16/10] bg-muted">
+            <div className="relative">
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
                 <img
                   src={allImages[currentImageIndex]}
-                  alt={`${property.name} - Image ${currentImageIndex + 1}`}
+                  alt={`${property.name} - Unit ${unit.unitNumber}`}
                   className="h-full w-full object-cover"
                 />
               </div>
+              
+              {/* Image Navigation */}
+              <div className="absolute bottom-4 left-4 right-4 flex justify-between">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={prevImage}
+                  disabled={allImages.length <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={nextImage}
+                  disabled={allImages.length <= 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
-              {allImages.length > 1 && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-4 top-1/2 -translate-y-1/2"
-                    onClick={prevImage}
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-4 top-1/2 -translate-y-1/2"
-                    onClick={nextImage}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
+            {/* Image Thumbnails */}
+            <div className="flex gap-2 mt-4 overflow-x-auto">
+              {allImages.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`flex-shrink-0 w-20 h-20 rounded-md overflow-hidden border-2 ${
+                    index === currentImageIndex ? 'border-primary' : 'border-transparent'
+                  }`}
+                >
+                  <img
+                    src={allImages[index]}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
-                    {allImages.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImageIndex(index)}
-                        className={`h-2 w-2 rounded-full transition-all ${index === currentImageIndex
-                          ? 'w-6 bg-primary'
-                          : 'bg-white/60 hover:bg-white/80'
-                          }`}
-                      />
+          {/* Property Details */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  {property.name}
+                </CardTitle>
+                <CardDescription>{property.address}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Badge variant="secondary">{unit.type}</Badge>
+                  <Badge variant="outline">Unit {unit.unitNumber}</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Bed className="h-4 w-4 text-muted-foreground" />
+                    <span>{unit.bedrooms} Bedrooms</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Bath className="h-4 w-4 text-muted-foreground" />
+                    <span>{unit.bathrooms} Bathrooms</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Square className="h-4 w-4 text-muted-foreground" />
+                    <span>{unit.squareMeters} sqm</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Amenities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {unit.amenities.map((amenity, index) => (
+                      <Badge key={index} variant="outline">
+                        {amenity}
+                      </Badge>
                     ))}
                   </div>
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Property Info */}
-            <div className="mb-6">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {unit.bedrooms === 0 ? 'Studio' : `${unit.bedrooms} BR`}
-                </Badge>
-                <Badge variant="outline" className="text-success border-success">
-                  Available
-                </Badge>
-              </div>
-
-              <h1 className="mb-2 text-2xl font-bold sm:text-3xl">{property.name}</h1>
-              <p className="text-lg text-muted-foreground">Unit {unit.unitNumber}</p>
-
-              <div className="mt-3 flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                <span>
-                  {property.address}, {property.city}, {property.county}
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <Card>
-                <CardContent className="flex flex-col items-center p-4">
-                  <Bed className="mb-2 h-5 w-5 text-muted-foreground" />
-                  <span className="text-lg font-semibold">
-                    {unit.bedrooms === 0 ? 'Studio' : unit.bedrooms}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Bedrooms</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-col items-center p-4">
-                  <Bath className="mb-2 h-5 w-5 text-muted-foreground" />
-                  <span className="text-lg font-semibold">{unit.bathrooms}</span>
-                  <span className="text-xs text-muted-foreground">Bathrooms</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-col items-center p-4">
-                  <Square className="mb-2 h-5 w-5 text-muted-foreground" />
-                  <span className="text-lg font-semibold">{unit.squareMeters}</span>
-                  <span className="text-xs text-muted-foreground">Sq Meters</span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-col items-center p-4">
-                  <Building2 className="mb-2 h-5 w-5 text-muted-foreground" />
-                  <span className="text-lg font-semibold">
-                    {unit.floor === 0 ? 'Ground' : unit.floor}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Floor</span>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Description */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>About This Property</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{property.description}</p>
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Property Amenities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {property.amenities.map((amenity, index) => (
+                      <Badge key={index} variant="secondary">
+                        {amenity}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Unit Amenities */}
-            {unit.amenities.length > 0 && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Unit Features</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {unit.amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-success" />
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Building Amenities */}
-            {property.amenities.length > 0 && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Building Amenities</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {property.amenities.map((amenity, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                        <span className="text-sm">{amenity}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-6">
-              {/* Pricing Card */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="mb-4">
-                    <span className="text-3xl font-bold text-primary">
-                      {formatCurrency(unit.rentAmount)}
-                    </span>
-                    <span className="text-muted-foreground">/month</span>
-                  </div>
-
-                  <Separator className="my-4" />
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Deposit Required</span>
-                      <span className="font-medium">{formatCurrency(unit.depositAmount)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Property Type</span>
-                      <span className="font-medium capitalize">{unit.type}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Available</span>
-                      <span className="font-medium text-success">Now</span>
-                    </div>
-                  </div>
-
-                  <Separator className="my-4" />
-
-                  <Link to="/register" className="block">
-                    <Button size="lg" className="w-full">
-                      Apply Now
+            {/* Contact */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>+254 700 000 000</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>info@rentease.co.ke</span>
+                </div>
+                <div className="flex gap-2">
+                  <Link to="/login">
+                    <Button variant="outline" className="flex-1">
+                      Sign in to Apply
                     </Button>
                   </Link>
-
-                  <p className="mt-3 text-center text-xs text-muted-foreground">
-                    Create an account to submit your application
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Contact Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Interested?</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Register for a free account to schedule a viewing or submit your rental
-                    application.
-                  </p>
-
-                  <div className="flex flex-col gap-2">
-                    <Link to="/register">
-                      <Button variant="outline" className="w-full gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Schedule Viewing
-                      </Button>
-                    </Link>
-                    <Link to="/contact">
-                      <Button variant="ghost" className="w-full gap-2">
-                        <Mail className="h-4 w-4" />
-                        Contact Us
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <Button variant="ghost" className="w-full gap-2">
+                    <Mail className="h-4 w-4" />
+                    Contact Us
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -347,37 +279,40 @@ export default function ListingDetail() {
           <div className="mt-12">
             <h2 className="mb-6 text-2xl font-bold">Similar Listings</h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {similarUnits.map((u) => (
-                <Card key={u.id} className="overflow-hidden">
-                  <div className="aspect-video bg-muted">
-                    <img
-                      src={u.imageUrls[0] || u.property.imageUrls[0]}
-                      alt={`${u.property.name} - Unit ${u.unitNumber}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="mb-1 font-semibold">{u.property.name}</h3>
-                    <p className="mb-2 text-sm text-muted-foreground">Unit {u.unitNumber}</p>
-
-                    <div className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {u.property.city}
+              {similarUnits.map((u) => {
+                const unitProperty = allProperties.find(p => p.id === u.propertyId);
+                return (
+                  <Card key={u.id} className="overflow-hidden">
+                    <div className="aspect-video bg-muted">
+                      <img
+                        src={u.imageUrls[0] || unitProperty?.imageUrls[0]}
+                        alt={`${unitProperty?.name || 'Property'} - Unit ${u.unitNumber}`}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
+                    <CardContent className="p-4">
+                      <h3 className="mb-1 font-semibold">{unitProperty?.name || 'Property'}</h3>
+                      <p className="mb-2 text-sm text-muted-foreground">Unit {u.unitNumber}</p>
 
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-primary">
-                        {formatCurrency(u.rentAmount)}/mo
-                      </span>
-                      <Link to={`/listings/${u.id}`}>
-                        <Button size="sm" variant="outline">
-                          View
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {unitProperty?.city || 'Location'}
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-primary">
+                          {formatCurrency(u.rentAmount)}/mo
+                        </span>
+                        <Link to={`/listings/${u.id}`}>
+                          <Button size="sm" variant="outline">
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}

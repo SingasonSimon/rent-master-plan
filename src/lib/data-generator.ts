@@ -292,52 +292,77 @@ export const generateSampleData = async () => {
     await unitsApi.update(units[0].data!.id, { status: 'occupied' });
     await unitsApi.update(units[6].data!.id, { status: 'occupied' });
 
-    // 7. Create payment history
+    // 7. Create comprehensive payment history for the last 12 months
     const now = new Date();
-    for (let i = 0; i < 3; i++) {
-      // Past payments for tenant3
-      await paymentsApi.create({
-        leaseId: lease1.data!.id,
-        tenantId: tenant3.data!.id,
-        amount: 18000,
-        dueDate: new Date(now.getFullYear(), now.getMonth() - (2 - i), 1).toISOString(),
-        paidDate: new Date(now.getFullYear(), now.getMonth() - (2 - i), 5).toISOString(),
-        status: 'paid',
-        method: 'mpesa',
-        transactionRef: `MPESA${Date.now()}${i}`,
-      });
-
-      // Past payments for tenant4
-      await paymentsApi.create({
-        leaseId: lease2.data!.id,
-        tenantId: tenant4.data!.id,
-        amount: 30000,
-        dueDate: new Date(now.getFullYear(), now.getMonth() - (1 - i), 1).toISOString(),
-        paidDate: new Date(now.getFullYear(), now.getMonth() - (1 - i), 3).toISOString(),
-        status: 'paid',
-        method: 'bank_transfer',
-        transactionRef: `BANK${Date.now()}${i}`,
-      });
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Generate payment history for each active lease
+    for (const lease of [lease1.data!, lease2.data!]) {
+      for (let monthsBack = 11; monthsBack >= 0; monthsBack--) {
+        const paymentDate = new Date(currentYear, currentMonth - monthsBack, 1);
+        
+        // Randomly decide if payment was made, is pending, or overdue
+        const rand = Math.random();
+        let status: 'paid' | 'pending' | 'overdue';
+        let paidDate: string | undefined;
+        
+        if (monthsBack >= 3) {
+          // Older payments are mostly paid
+          status = rand > 0.1 ? 'paid' : (rand > 0.05 ? 'pending' : 'overdue');
+          paidDate = status === 'paid' ? new Date(paymentDate.getTime() + Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString() : undefined;
+        } else if (monthsBack >= 1) {
+          // Recent payments have more variety
+          status = rand > 0.3 ? 'paid' : (rand > 0.15 ? 'pending' : 'overdue');
+          paidDate = status === 'paid' ? new Date(paymentDate.getTime() + Math.random() * 15 * 24 * 60 * 60 * 1000).toISOString() : undefined;
+        } else {
+          // Current month is mostly pending
+          status = rand > 0.2 ? 'pending' : (rand > 0.1 ? 'overdue' : 'paid');
+          paidDate = status === 'paid' ? new Date(paymentDate.getTime() + Math.random() * 5 * 24 * 60 * 60 * 1000).toISOString() : undefined;
+        }
+        
+        await paymentsApi.create({
+          leaseId: lease.id,
+          tenantId: lease.tenantId,
+          amount: lease.rentAmount,
+          dueDate: paymentDate.toISOString(),
+          paidDate,
+          status: status as 'paid' | 'pending' | 'overdue',
+          method: Math.random() > 0.5 ? 'mpesa' : 'bank_transfer',
+          transactionRef: status === 'paid' ? `${Math.random() > 0.5 ? 'MPESA' : 'BANK'}${Date.now()}${monthsBack}` : undefined,
+        });
+      }
     }
 
-    // Current month payments (pending)
-    await paymentsApi.create({
-      leaseId: lease1.data!.id,
-      tenantId: tenant3.data!.id,
-      amount: 18000,
-      dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-      status: 'pending',
-      method: 'mpesa',
+    // 7.5. Create historical lease activity for better occupancy trends
+    // Create some past leases that have ended to show occupancy changes
+    const pastLease1 = await leasesApi.create({
+      unitId: units[2].data!.id, // Another unit
+      tenantId: tenant1.data!.id,
+      startDate: new Date(currentYear, currentMonth - 8, 1).toISOString(), // 8 months ago
+      endDate: new Date(currentYear, currentMonth - 2, 1).toISOString(), // Ended 2 months ago
+      rentAmount: 25000,
+      depositAmount: 50000,
+      paymentFrequency: 'monthly',
+      status: 'ended',
+      terms: 'Previous lease agreement',
     });
 
-    await paymentsApi.create({
-      leaseId: lease2.data!.id,
-      tenantId: tenant4.data!.id,
-      amount: 30000,
-      dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-      status: 'pending',
-      method: 'bank_transfer',
+    const pastLease2 = await leasesApi.create({
+      unitId: units[3].data!.id, // Another unit
+      tenantId: tenant2.data!.id,
+      startDate: new Date(currentYear, currentMonth - 6, 1).toISOString(), // 6 months ago
+      endDate: new Date(currentYear, currentMonth - 1, 1).toISOString(), // Ended last month
+      rentAmount: 35000,
+      depositAmount: 70000,
+      paymentFrequency: 'monthly',
+      status: 'ended',
+      terms: 'Previous lease agreement',
     });
+
+    // Update units for past leases to available
+    await unitsApi.update(units[2].data!.id, { status: 'available' });
+    await unitsApi.update(units[3].data!.id, { status: 'available' });
 
     // 8. Create maintenance requests
     await maintenanceApi.create({
@@ -399,8 +424,8 @@ export const generateSampleData = async () => {
       content: 'Hi, I submitted an application for unit B-102. Wanted to check on the status.',
     });
 
-    console.log('Comprehensive sample data generated successfully!');
-    console.log(`Created: 3 landlords, 4 tenants, 3 properties, ${units.length} units, 2 applications, 2 leases, multiple payments, maintenance requests, and messages.`);
+    console.log('Comprehensive sample data with rich analytics generated successfully!');
+    console.log(`Created: 3 landlords, 4 tenants, 3 properties, ${units.length} units, 2 applications, 4 leases (2 active, 2 ended), 24 payment records (12 months history), 3 maintenance requests, and 4 messages.`);
     return true;
   } catch (error) {
     console.error('Failed to generate sample data:', error);

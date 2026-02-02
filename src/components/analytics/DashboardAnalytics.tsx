@@ -34,8 +34,8 @@ import type { Property, Unit, Payment, Lease, Application, MaintenanceRequest, U
 const formatCurrency = (value: number) => `KES ${(value / 1000).toFixed(0)}K`;
 const formatCurrencyFull = (value: number) => `KES ${(value / 1000000).toFixed(2)}M`;
 
-// Generate dynamic occupancy data from real units
-const generateOccupancyData = (units: Unit[], dateRange?: { start: Date; end: Date }) => {
+// Generate dynamic occupancy data from real units and leases
+const generateOccupancyData = (units: Unit[], leases: Lease[], dateRange?: { start: Date; end: Date }) => {
   const currentYear = new Date().getFullYear();
   const monthlyData = [];
   
@@ -45,20 +45,28 @@ const generateOccupancyData = (units: Unit[], dateRange?: { start: Date; end: Da
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
     
-    // For demo purposes, simulate occupancy trends based on current data
-    const currentOccupancyRate = units.length > 0 
-      ? (units.filter(u => u.status === 'occupied').length / units.length) * 100 
-      : 0;
+    // Calculate occupancy for this specific month based on lease history
+    const activeLeasesThisMonth = leases.filter(lease => {
+      const leaseStart = new Date(lease.startDate);
+      const leaseEnd = new Date(lease.endDate);
+      return lease.status === 'active' || 
+             (lease.status === 'ended' && 
+              leaseStart <= monthEnd && leaseEnd >= monthStart);
+    });
     
-    // Add some variation to make it realistic
-    const variation = Math.sin((11 - i) * 0.5) * 5;
-    const occupancy = Math.max(0, Math.min(100, currentOccupancyRate + variation));
+    const occupiedUnitsThisMonth = activeLeasesThisMonth.length;
+    const totalUnits = units.length;
+    const occupancyRate = totalUnits > 0 ? (occupiedUnitsThisMonth / totalUnits) * 100 : 0;
+    
+    // Add some realistic variation
+    const variation = Math.sin((11 - i) * 0.3) * 3;
+    const finalOccupancy = Math.max(0, Math.min(100, occupancyRate + variation));
     
     monthlyData.push({
       month: format(monthDate, 'MMM'),
       monthNum: monthDate.getMonth(),
-      occupancy: Math.round(occupancy),
-      available: Math.round(100 - occupancy),
+      occupancy: Math.round(finalOccupancy),
+      available: Math.round(100 - finalOccupancy),
       date: monthDate,
     });
   }
@@ -428,7 +436,7 @@ export default function DashboardAnalytics() {
   }, [user]);
 
   // Generate dynamic data
-  const occupancyData = useMemo(() => generateOccupancyData(units), [units]);
+  const occupancyData = useMemo(() => generateOccupancyData(units, leases), [units, leases]);
   const paymentData = useMemo(() => generatePaymentData(payments), [payments]);
   const unitTypeData = useMemo(() => generateUnitTypeData(units), [units]);
   const propertyPerformanceData = useMemo(() => generatePropertyPerformanceData(properties, units, leases), [properties, units, leases]);

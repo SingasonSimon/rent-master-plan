@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/layout/Footer';
@@ -28,34 +28,67 @@ import {
   Home,
   SlidersHorizontal,
 } from 'lucide-react';
-import { mockProperties, mockUnits, formatCurrency } from '@/lib/mock-data';
+import { formatCurrency } from '@/lib/mock-data';
+import { unitApi, propertyApi } from '@/lib/api';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import type { Unit, Property } from '@/types';
 
 const ITEMS_PER_PAGE = 9;
 
-// Get unique values for filters
-const cities = [...new Set(mockProperties.map((p) => p.city))];
 const unitTypes = ['studio', 'bedsitter', '1br', '2br', '3br', '4br+'];
-const maxRent = Math.max(...mockUnits.map((u) => u.rentAmount));
-const minRent = Math.min(...mockUnits.map((u) => u.rentAmount));
 
 export default function Listings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [priceRange, setPriceRange] = useState<[number, number]>([minRent, maxRent]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [unitsRes, propsRes] = await Promise.all([
+          unitApi.getAll(),
+          propertyApi.getAll(),
+        ]);
+        
+        if (unitsRes.data && propsRes.data) {
+          setUnits(unitsRes.data);
+          setProperties(propsRes.data);
+          
+          // Set price range based on actual data
+          const rents = unitsRes.data.map(u => u.rentAmount);
+          const minRent = Math.min(...rents);
+          const maxRent = Math.max(...rents);
+          setPriceRange([minRent, maxRent]);
+        }
+      } catch (error) {
+        console.error('Failed to load listings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Get unique cities for filters
+  const cities = useMemo(() => [...new Set(properties.map((p) => p.city))], [properties]);
 
   // Combine units with property data and filter
   const unitsWithProperties = useMemo(() => {
-    return mockUnits
+    return units
       .filter((unit) => unit.status === 'available')
       .map((unit) => ({
         ...unit,
-        property: mockProperties.find((p) => p.id === unit.propertyId)!,
+        property: properties.find((p) => p.id === unit.propertyId),
       }));
-  }, []);
+  }, [units, properties]);
 
   const filteredUnits = useMemo(() => {
     let results = unitsWithProperties.filter((unit) => {
@@ -110,20 +143,30 @@ export default function Listings() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const clearFilters = () => {
+  const resetFilters = () => {
     setSearchQuery('');
     setSelectedCity('all');
     setSelectedType('all');
-    setPriceRange([minRent, maxRent]);
+    // Reset to initial price range based on current data
+    const rents = units.map(u => u.rentAmount);
+    if (rents.length > 0) {
+      setPriceRange([Math.min(...rents), Math.max(...rents)]);
+    }
     setCurrentPage(1);
   };
 
-  const hasActiveFilters =
-    searchQuery !== '' ||
-    selectedCity !== 'all' ||
-    selectedType !== 'all' ||
-    priceRange[0] !== minRent ||
-    priceRange[1] !== maxRent;
+  const hasActiveFilters = useMemo(() => {
+    const rents = units.map(u => u.rentAmount);
+    if (rents.length === 0) return false;
+    const minRent = Math.min(...rents);
+    const maxRent = Math.max(...rents);
+    
+    return searchQuery !== '' ||
+           selectedCity !== 'all' ||
+           selectedType !== 'all' ||
+           priceRange[0] !== minRent ||
+           priceRange[1] !== maxRent;
+  }, [searchQuery, selectedCity, selectedType, priceRange, units]);
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -168,8 +211,8 @@ export default function Listings() {
         <Label>Price Range</Label>
         <Slider
           value={priceRange}
-          min={minRent}
-          max={maxRent}
+          min={priceRange[0]}
+          max={priceRange[1]}
           step={5000}
           onValueChange={(value) => { setPriceRange(value as [number, number]); setCurrentPage(1); }}
           className="mt-2"
@@ -180,12 +223,16 @@ export default function Listings() {
         </div>
       </div>
 
-      {hasActiveFilters && (
-        <Button variant="outline" onClick={clearFilters} className="w-full gap-2">
-          <X className="h-4 w-4" />
-          Clear Filters
+      {/* Reset Button */}
+      <div className="pt-4 border-t">
+        <Button 
+          variant="outline" 
+          onClick={resetFilters}
+          className="w-full"
+        >
+          Reset Filters
         </Button>
-      )}
+      </div>
     </div>
   );
 
@@ -279,7 +326,7 @@ export default function Listings() {
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-semibold">Filters</h3>
                 {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <Button variant="ghost" size="sm" onClick={resetFilters}>
                     Clear
                   </Button>
                 )}
@@ -298,7 +345,7 @@ export default function Listings() {
                   <p className="mb-4 text-muted-foreground">
                     Try adjusting your filters or search criteria
                   </p>
-                  <Button variant="outline" onClick={clearFilters}>
+                  <Button variant="outline" onClick={resetFilters}>
                     Clear Filters
                   </Button>
                 </CardContent>

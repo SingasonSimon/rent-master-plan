@@ -72,7 +72,7 @@ export function SettingsManagement() {
     if (success) {
       toast({
         title: 'Comprehensive Sample Data Generated!',
-        description: 'Created 3 landlords, 4 tenants, 3 properties, 21 units, 2 applications, 2 active leases, payment history, maintenance requests, and messages.',
+        description: 'Created 3 landlords, 4 tenants, 3 properties, 21 units, 4 leases with 12-month payment history, applications, maintenance requests, and messages. All charts and analytics are now dynamic!',
       });
     } else {
       toast({

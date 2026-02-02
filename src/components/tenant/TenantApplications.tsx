@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { FileText, Clock, CheckCircle2, XCircle, Eye, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { applicationsApi } from '@/lib/api';
-import { mockApplications, mockUnits, mockProperties, formatCurrency, formatDate } from '@/lib/mock-data';
+import { applicationsApi, unitsApi, propertiesApi } from '@/lib/api';
+import { formatCurrency, formatDate } from '@/lib/mock-data';
 import type { Application, ApplicationStatus, RecommendationStatus } from '@/types';
 
 interface ApplicationWithDetails extends Application {
@@ -59,19 +59,17 @@ export default function TenantApplications() {
     const loadApplications = async () => {
       if (!user) return;
       try {
-        const response = await applicationsApi.getByTenant(user.id);
-        if (response.success && response.data) {
-          // Enrich with unit and property details which might need separate API calls 
-          // or we can assume the API should return enriched data.
-          // For now, let's map using the same logic but on the fetched data
+        const [appsRes, unitsRes, propsRes] = await Promise.all([
+          applicationsApi.getByTenant(user.id),
+          unitsApi.getAll(),
+          propertiesApi.getAll(),
+        ]);
 
-          // Note: In a real app the API would return relations.
-          // Here we still need to grab unit/property info.
-          // Ideally we should refactor api.ts to return relations, but for quick fix:
-
-          const enriched = response.data.map((app) => {
-            const unit = mockUnits.find((u) => u.id === app.unitId);
-            const property = unit ? mockProperties.find((p) => p.id === unit.propertyId) : null;
+        if (appsRes.data && unitsRes.data && propsRes.data) {
+          // Enrich with unit and property details
+          const enriched = appsRes.data.map((app) => {
+            const unit = unitsRes.data.find((u) => u.id === app.unitId);
+            const property = unit ? propsRes.data.find((p) => p.id === unit.propertyId) : null;
             return {
               ...app,
               unit: unit ? {
