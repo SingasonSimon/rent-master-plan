@@ -11,11 +11,16 @@ This document demonstrates the complete working flow for the **dynamic** rent ma
 ### 2. Generate Sample Data (Optional)
 1. **Login as Admin**
 2. Go to **Settings → System → Data Management**
-3. Click **"Generate Sample Data"** to create:
-   - 2 Landlords with properties
-   - 2 Tenants
-   - 3 Properties with multiple units
-   - Sample applications and maintenance requests
+3. Click **"Generate Comprehensive Sample Data"** to create:
+   - 3 Landlords with properties
+   - 4 Tenants 
+   - 3 Properties (Kilimani Heights, Westlands Gardens, Lavington Green)
+   - 21 Units (studios, 1BR, 2BR, 3BR across multiple floors)
+   - 2 Active leases with payment history
+   - 2 Pending applications
+   - Multiple payments (paid and pending)
+   - 3 Maintenance requests with different priorities
+   - 4 Message threads between users
 
 ### 3. Start from Scratch
 1. **Login as Admin** 

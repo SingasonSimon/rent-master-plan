@@ -71,8 +71,8 @@ export function SettingsManagement() {
     const success = await generateSampleData();
     if (success) {
       toast({
-        title: 'Sample Data Generated',
-        description: 'Sample landlords, tenants, properties, and units have been created successfully.',
+        title: 'Comprehensive Sample Data Generated!',
+        description: 'Created 3 landlords, 4 tenants, 3 properties, 21 units, 2 applications, 2 active leases, payment history, maintenance requests, and messages.',
       });
     } else {
       toast({
@@ -470,8 +470,8 @@ export function SettingsManagement() {
                       <div className="flex items-center gap-3">
                         <Database className="h-8 w-8 text-primary" />
                         <div className="flex-1">
-                          <p className="font-medium">Generate Sample Data</p>
-                          <p className="text-sm text-muted-foreground">Create sample landlords, tenants, properties, and units for testing</p>
+                          <p className="font-medium">Generate Comprehensive Sample Data</p>
+                          <p className="text-sm text-muted-foreground">Creates 3 landlords, 4 tenants, 3 properties, 21 units, leases, payments, maintenance requests, and messages</p>
                         </div>
                       </div>
                       <Button 
