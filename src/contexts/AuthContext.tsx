@@ -14,6 +14,7 @@ interface AuthContextType {
     firstName: string;
     lastName: string;
     phone: string;
+    role?: 'tenant' | 'landlord';
   }) => Promise<boolean>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<boolean>;
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     firstName: string;
     lastName: string;
     phone: string;
+    role?: 'tenant' | 'landlord';
   }): Promise<boolean> => {
     setIsLoading(true);
     try {

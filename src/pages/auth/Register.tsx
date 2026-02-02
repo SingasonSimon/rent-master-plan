@@ -14,13 +14,14 @@ export default function Register() {
     lastName: '',
     email: '',
     phone: '',
+    role: 'tenant' as 'tenant' | 'landlord',
     password: '',
     confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -35,7 +36,7 @@ export default function Register() {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
@@ -56,31 +57,32 @@ export default function Register() {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validate()) return;
-    
+
     setIsSubmitting(true);
-    
+
     const success = await register({
       email: formData.email,
       password: formData.password,
       firstName: formData.firstName,
       lastName: formData.lastName,
       phone: formData.phone,
+      role: formData.role,
     });
-    
+
     if (success) {
       const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
       navigate(getDashboardPath(user.role), { replace: true });
     }
-    
+
     setIsSubmitting(false);
   };
 
@@ -94,7 +96,7 @@ export default function Register() {
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>Join RentEase to find your perfect home</CardDescription>
         </CardHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -112,7 +114,7 @@ export default function Register() {
                   <p className="text-xs text-destructive">{errors.firstName}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last name</Label>
                 <Input
@@ -128,7 +130,7 @@ export default function Register() {
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -145,7 +147,7 @@ export default function Register() {
                 <p className="text-xs text-destructive">{errors.email}</p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="phone">Phone number</Label>
               <Input
@@ -162,7 +164,36 @@ export default function Register() {
                 <p className="text-xs text-destructive">{errors.phone}</p>
               )}
             </div>
-            
+
+            <div className="space-y-2">
+              <Label>I am a...</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors flex-1">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="tenant"
+                    checked={formData.role === 'tenant'}
+                    onChange={handleChange}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm font-medium">Tenant</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors flex-1">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="landlord"
+                    checked={formData.role === 'landlord'}
+                    onChange={handleChange}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm font-medium">Landlord</span>
+                </label>
+              </div>
+            </div>
+
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -194,7 +225,7 @@ export default function Register() {
                 <p className="text-xs text-destructive">{errors.password}</p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <Input
@@ -212,13 +243,13 @@ export default function Register() {
               )}
             </div>
           </CardContent>
-          
+
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create account
             </Button>
-            
+
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{' '}
               <Link to="/login" className="text-primary hover:underline">

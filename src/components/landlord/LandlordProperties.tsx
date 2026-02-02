@@ -47,7 +47,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { mockProperties, mockUnits, formatCurrency } from '@/lib/mock-data';
+import { propertyApi, unitApi } from '@/lib/api';
+// import { mockProperties, mockUnits, formatCurrency } from '@/lib/mock-data'; // Remove usage of mockProperties/Units, keep formatCurrency
+import { formatCurrency } from '@/lib/mock-data';
 import type { Property, Unit, PropertyStatus, UnitStatus, UnitType } from '@/types';
 import { z } from 'zod';
 
@@ -130,15 +132,31 @@ export default function LandlordProperties() {
   });
 
   useEffect(() => {
-    // Get properties owned by this landlord
-    const landlordId = user?.id || 'landlord-001';
-    const myProperties = mockProperties.filter((p) => p.landlordId === landlordId);
-    setProperties(myProperties);
+    const fetchData = async () => {
+      if (!user) return;
+      const landlordId = user.id; // In prototype, we trust the logged in user is the landlord
 
-    // Get all units for these properties
-    const propertyIds = myProperties.map((p) => p.id);
-    const myUnits = mockUnits.filter((u) => propertyIds.includes(u.propertyId));
-    setUnits(myUnits);
+      try {
+        const propsRes = await propertyApi.getByLandlord(landlordId);
+        if (propsRes.success && propsRes.data) {
+          setProperties(propsRes.data);
+
+          // Get units for these properties
+          // In a real app we might fetch per property or have a bulk endpoint
+          // For prototype, we fetch all units and filter client side or use the loop
+          const unitsRes = await unitApi.getAll(); // We added getAll to unitApi alias
+          if (unitsRes.success && unitsRes.data) {
+            const myPropIds = propsRes.data.map(p => p.id);
+            const myUnits = unitsRes.data.filter(u => myPropIds.includes(u.propertyId));
+            setUnits(myUnits);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch properties", error);
+      }
+    };
+
+    fetchData();
   }, [user]);
 
   const openPropertyDialog = (property?: Property) => {
@@ -205,14 +223,34 @@ export default function LandlordProperties() {
       setFormErrors({});
       setIsSubmitting(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      let res;
+      if (editingProperty) {
+        res = await propertyApi.update(editingProperty.id, propertyForm);
+      } else {
+        res = await propertyApi.create({
+          ...propertyForm,
+          landlordId: user?.id || 'landlord-001',
+          imageUrls: [], // Placeholder for now
+          totalUnits: 0,
+          occupiedUnits: 0,
+          amenities: [],
+        });
+      }
 
-      toast({
-        title: editingProperty ? 'Property Updated' : 'Property Created',
-        description: `${propertyForm.name} has been ${editingProperty ? 'updated' : 'added'} successfully.`,
-      });
+      if (res.success && res.data) {
+        // Refresh local list
+        if (editingProperty) {
+          setProperties(properties.map(p => p.id === res.data.id ? res.data : p));
+        } else {
+          setProperties([res.data, ...properties]);
+        }
 
-      setShowPropertyDialog(false);
+        toast({
+          title: editingProperty ? 'Property Updated' : 'Property Created',
+          description: `${propertyForm.name} has been ${editingProperty ? 'updated' : 'added'} successfully.`,
+        });
+        setShowPropertyDialog(false);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errors: Record<string, string> = {};
@@ -232,14 +270,36 @@ export default function LandlordProperties() {
       setFormErrors({});
       setIsSubmitting(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!selectedProperty && !editingUnit) return; // Should not happen
 
-      toast({
-        title: editingUnit ? 'Unit Updated' : 'Unit Added',
-        description: `Unit ${unitForm.unitNumber} has been ${editingUnit ? 'updated' : 'added'} successfully.`,
-      });
+      let res;
+      if (editingUnit) {
+        res = await unitApi.update(editingUnit.id, unitForm);
+      } else {
+        // Creating new unit
+        res = await unitApi.create({
+          ...unitForm,
+          propertyId: selectedProperty!.id,
+          amenities: [],
+          imageUrls: [],
+        });
+      }
 
-      setShowUnitDialog(false);
+      if (res.success && res.data) {
+        if (editingUnit) {
+          setUnits(units.map(u => u.id === res.data.id ? res.data : u));
+        } else {
+          setUnits([...units, res.data]);
+        }
+
+        toast({
+          title: editingUnit ? 'Unit Updated' : 'Unit Added',
+          description: `Unit ${unitForm.unitNumber} has been ${editingUnit ? 'updated' : 'added'} successfully.`,
+        });
+
+        setShowUnitDialog(false);
+      }
+
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errors: Record<string, string> = {};

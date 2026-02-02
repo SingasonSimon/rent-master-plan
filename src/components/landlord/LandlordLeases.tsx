@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/table';
 import { FileText, Calendar, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockLeases, mockUnits, mockProperties, mockUsers, formatCurrency, formatDate } from '@/lib/mock-data';
+import { propertyApi, unitApi, leaseApi, userApi } from '@/lib/api';
+import { formatCurrency, formatDate } from '@/lib/mock-data';
 import type { Lease, LeaseStatus } from '@/types';
 
 interface LeaseWithDetails extends Lease {
@@ -32,38 +33,62 @@ export default function LandlordLeases() {
   const [leases, setLeases] = useState<LeaseWithDetails[]>([]);
 
   useEffect(() => {
-    // Get leases for properties owned by this landlord
-    const landlordId = user?.id || 'landlord-001';
-    const myPropertyIds = mockProperties
-      .filter((p) => p.landlordId === landlordId)
-      .map((p) => p.id);
+    const fetchData = async () => {
+      if (!user) return;
 
-    const myUnitIds = mockUnits
-      .filter((u) => myPropertyIds.includes(u.propertyId))
-      .map((u) => u.id);
+      try {
+        const landlordId = user.id;
 
-    const myLeases = mockLeases
-      .filter((lease) => myUnitIds.includes(lease.unitId))
-      .map((lease) => {
-        const unit = mockUnits.find((u) => u.id === lease.unitId);
-        const property = unit ? mockProperties.find((p) => p.id === unit.propertyId) : null;
-        const tenant = mockUsers.find((u) => u.id === lease.tenantId);
+        // 1. Get Landlord's Properties
+        const propsRes = await propertyApi.getByLandlord(landlordId);
+        if (!propsRes.success || !propsRes.data) return;
+        const myProperties = propsRes.data;
+        const myPropIds = myProperties.map(p => p.id);
 
-        return {
-          ...lease,
-          unit: unit ? { unitNumber: unit.unitNumber, type: unit.type } : { unitNumber: 'N/A', type: 'N/A' },
-          property: property ? { name: property.name, city: property.city } : { name: 'N/A', city: 'N/A' },
-          tenant: tenant ? {
-            firstName: tenant.firstName,
-            lastName: tenant.lastName,
-            email: tenant.email,
-            phone: tenant.phone,
-          } : null,
-        };
-      })
-      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+        // 2. Get Units for those properties
+        const unitsRes = await unitApi.getAll();
+        if (!unitsRes.success || !unitsRes.data) return;
+        const allUnits = unitsRes.data;
+        const myUnits = allUnits.filter(u => myPropIds.includes(u.propertyId));
+        const myUnitIds = myUnits.map(u => u.id);
 
-    setLeases(myLeases);
+        // 3. Get all Leases
+        const leasesRes = await leaseApi.getAll();
+        if (!leasesRes.success || !leasesRes.data) return;
+
+        // 4. Get Tenants (for display names)
+        const usersRes = await userApi.getAll();
+        const allUsers = usersRes.data || [];
+
+        // 5. Filter Leases for my units and map details
+        const myLeases = leasesRes.data
+          .filter((lease) => myUnitIds.includes(lease.unitId))
+          .map((lease) => {
+            const unit = myUnits.find((u) => u.id === lease.unitId);
+            const property = unit ? myProperties.find((p) => p.id === unit.propertyId) : null;
+            const tenant = allUsers.find((u) => u.id === lease.tenantId);
+
+            return {
+              ...lease,
+              unit: unit ? { unitNumber: unit.unitNumber, type: unit.type } : { unitNumber: 'N/A', type: 'N/A' },
+              property: property ? { name: property.name, city: property.city } : { name: 'N/A', city: 'N/A' },
+              tenant: tenant ? {
+                firstName: tenant.firstName,
+                lastName: tenant.lastName,
+                email: tenant.email,
+                phone: tenant.phone,
+              } : null,
+            };
+          })
+          .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+        setLeases(myLeases);
+      } catch (error) {
+        console.error("Failed to fetch leases", error);
+      }
+    };
+
+    fetchData();
   }, [user]);
 
   const activeLeases = leases.filter((l) => l.status === 'active');
@@ -85,7 +110,7 @@ export default function LandlordLeases() {
           <div>
             <h4 className="font-semibold">Read-Only Access</h4>
             <p className="text-sm text-muted-foreground">
-              Lease creation and modification is handled by the system administrator. 
+              Lease creation and modification is handled by the system administrator.
               You can view lease details and tenant information here.
             </p>
           </div>

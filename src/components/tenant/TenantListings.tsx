@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,8 @@ import {
   CheckCircle2,
   Calendar,
 } from 'lucide-react';
-import { mockProperties, mockUnits, formatCurrency, formatDate } from '@/lib/mock-data';
+import { formatCurrency, formatDate } from '@/lib/mock-data';
+import { unitApi, applicationApi } from '@/lib/api';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,10 +44,10 @@ import { z } from 'zod';
 
 const ITEMS_PER_PAGE = 6;
 
-const cities = [...new Set(mockProperties.map((p) => p.city))];
+const cities = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']; // Simplified static list for prototype
 const unitTypes = ['studio', 'bedsitter', '1br', '2br', '3br', '4br+'];
-const maxRent = Math.max(...mockUnits.map((u) => u.rentAmount));
-const minRent = Math.min(...mockUnits.map((u) => u.rentAmount));
+const maxRent = 500000; // Static max for slider
+const minRent = 0;      // Static min for slider
 
 // Application form schema
 const applicationSchema = z.object({
@@ -72,6 +73,7 @@ interface UnitWithProperty {
   floor: number;
   amenities: string[];
   imageUrls: string[];
+  createdAt: string; // Added to fix sort error
   property: {
     id: string;
     name: string;
@@ -108,18 +110,42 @@ export default function TenantListings() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Combine units with property data
-  const unitsWithProperties = useMemo(() => {
-    return mockUnits
-      .filter((unit) => unit.status === 'available')
-      .map((unit) => ({
-        ...unit,
-        property: mockProperties.find((p) => p.id === unit.propertyId)!,
-      }));
-  }, []);
+  const [units, setUnits] = useState<UnitWithProperty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch units from API
+  useEffect(() => {
+    const fetchUnits = async () => {
+      setIsLoading(true);
+      try {
+        // We can pass filters to the API, or filter client side.
+        // For the prototype polish, let's fetch all available and filter client side
+        // to match the existing behavior of 'filteredUnits' useMemo below.
+        // But wait, unitApi.getAvailable ALREADY filters by status='available'.
+        const res = await unitApi.getAvailable();
+        if (res.data) {
+          // Transform API data to match component's expected interface if needed
+          // The API returns Unit & { property: Property }, which matches UnitWithProperty interface structure mostly.
+          // We just need to ensure amenities/imageUrls are handled if they are missing or different types.
+          const mapped = res.data.map(u => ({
+            ...u,
+            property: u.property // already populated
+          })) as unknown as UnitWithProperty[];
+          setUnits(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to fetch units", error);
+        toast({ title: "Error", description: "Failed to load listings", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUnits();
+  }, [toast]);
+
 
   const filteredUnits = useMemo(() => {
-    let results = unitsWithProperties.filter((unit) => {
+    let results = units.filter((unit) => {
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         searchQuery === '' ||
@@ -149,7 +175,7 @@ export default function TenantListings() {
     }
 
     return results;
-  }, [unitsWithProperties, searchQuery, selectedCity, selectedType, priceRange, sortBy]);
+  }, [units, searchQuery, selectedCity, selectedType, priceRange, sortBy]);
 
   const totalPages = Math.ceil(filteredUnits.length / ITEMS_PER_PAGE);
   const paginatedUnits = filteredUnits.slice(
@@ -201,16 +227,33 @@ export default function TenantListings() {
       setFormErrors({});
       setIsSubmitting(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!user) {
+        toast({ title: "Error", description: "You must be logged in to apply", variant: "destructive" });
+        return;
+      }
+      if (!selectedUnit) return;
 
-      toast({
-        title: 'Application Submitted!',
-        description: `Your application for Unit ${selectedUnit?.unitNumber} at ${selectedUnit?.property.name} has been submitted successfully.`,
+      const res = await applicationApi.create({
+        unitId: selectedUnit.id,
+        tenantId: user.id,
+        employmentStatus: validated.employmentStatus,
+        monthlyIncome: validated.monthlyIncome,
+        emergencyContact: validated.emergencyContact,
+        emergencyPhone: validated.emergencyPhone,
+        moveInDate: validated.moveInDate,
+        // content: validated.additionalNotes // Map notes to content or existing field
       });
 
-      setShowApplyDialog(false);
-      setSelectedUnit(null);
+      if (res.success) {
+        toast({
+          title: 'Application Submitted!',
+          description: `Your application for Unit ${selectedUnit?.unitNumber} at ${selectedUnit?.property.name} has been submitted successfully.`,
+        });
+        setShowApplyDialog(false);
+        setSelectedUnit(null);
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to submit application", variant: "destructive" });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errors: Record<string, string> = {};
