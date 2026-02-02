@@ -40,9 +40,9 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { maintenanceApi, unitApi, propertyApi } from '@/lib/api';
+import { maintenanceApi, unitApi, propertyApi, userApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { mockUsers, formatDate } from '@/lib/mock-data';
+import { formatDate } from '@/lib/mock-data';
 import type { MaintenanceRequest, MaintenanceStatus, MaintenancePriority, MaintenanceCategory } from '@/types';
 import { z } from 'zod';
 
@@ -532,22 +532,17 @@ export default function TenantMaintenance() {
                 <div>
                   <p className="mb-2 text-sm font-medium">Updates</p>
                   <div className="space-y-2">
-                    {selectedRequest.comments.map((comment) => {
-                      const commenter = mockUsers.find((u) => u.id === comment.userId);
-                      return (
-                        <div key={comment.id} className="rounded-lg bg-muted/50 p-3">
-                          <div className="mb-1 flex items-center justify-between">
-                            <span className="text-sm font-medium">
-                              {commenter ? `${commenter.firstName} ${commenter.lastName}` : 'Staff'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(comment.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{comment.content}</p>
+                    {selectedRequest.comments.map((comment) => (
+                      <div key={comment.id} className="rounded-lg bg-muted/50 p-3">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-sm font-medium">Staff</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(comment.createdAt)}
+                          </span>
                         </div>
-                      );
-                    })}
+                        <p className="text-sm text-muted-foreground">{comment.content}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

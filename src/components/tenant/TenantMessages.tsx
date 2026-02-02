@@ -25,7 +25,7 @@ import { MessageSquare, Plus, Mail, MailOpen, Send, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { messageApi, userApi } from '@/lib/api';
-import { mockUsers, formatDate } from '@/lib/mock-data';
+import { formatDate } from '@/lib/mock-data';
 import type { Message } from '@/types';
 import { z } from 'zod';
 
@@ -55,9 +55,24 @@ export default function TenantMessages() {
     subject: '',
     content: '',
   });
+  const [contacts, setContacts] = useState<any[]>([]);
 
-  // Get landlords and admins for messaging
-  const contacts = mockUsers.filter((u) => u.role === 'landlord' || u.role === 'admin');
+  // Load contacts (landlords and admins)
+  useEffect(() => {
+    const loadContacts = async () => {
+      try {
+        const usersRes = await userApi.getAll();
+        if (usersRes.success && usersRes.data) {
+          const landlords = usersRes.data.filter((u: any) => u.role === 'landlord');
+          const admins = usersRes.data.filter((u: any) => u.role === 'admin');
+          setContacts([...landlords, ...admins]);
+        }
+      } catch (error) {
+        console.error('Failed to load contacts', error);
+      }
+    };
+    loadContacts();
+  }, []);
 
   useEffect(() => {
     const loadMessages = async () => {
