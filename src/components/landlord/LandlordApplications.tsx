@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { applicationApi, propertyApi, unitApi, userApi } from '@/lib/api';
+import { applicationApi, propertyApi, unitApi, userApi, applicationsApi } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/mock-data';
 import type { Application, ApplicationStatus, RecommendationStatus } from '@/types';
 
@@ -73,35 +73,26 @@ export default function LandlordApplications() {
       if (!user) return;
       setIsLoading(true);
       try {
-        // 1. Get landlord's properties
-        const propsRes = await propertyApi.getByLandlord(user.id);
-        if (!propsRes.success || !propsRes.data) {
-          setApplications([]);
-          return;
-        }
-        const myPropertyIds = propsRes.data.map(p => p.id);
+        // Use the new getByLandlord function
+        const appsRes = await applicationsApi.getByLandlord(user.id);
+        const myApps = appsRes.data || [];
 
-        // 2. Get all units for these properties
+        // Get all units for these applications
         const unitsRes = await unitApi.getAll();
         const allUnits = unitsRes.data || [];
-        const myUnits = allUnits.filter(u => myPropertyIds.includes(u.propertyId));
-        const myUnitIds = myUnits.map(u => u.id);
 
-        // 3. Get all applications
-        const appsRes = await applicationApi.getAll();
-        const allApps = appsRes.data || [];
+        // Get all properties for unit details
+        const propsRes = await propertyApi.getAll();
+        const allProperties = propsRes.data || [];
 
-        // 4. Filter to applications for my units
-        const myApps = allApps.filter(app => myUnitIds.includes(app.unitId));
-
-        // 5. Get all users for tenant details
+        // Get all users for tenant details
         const usersRes = await userApi.getAll();
         const allUsers = usersRes.data || [];
 
-        // 6. Enrich applications
+        // Enrich applications
         const enriched: ApplicationWithDetails[] = myApps.map(app => {
-          const unit = myUnits.find(u => u.id === app.unitId);
-          const property = unit ? propsRes.data?.find(p => p.id === unit.propertyId) : null;
+          const unit = allUnits.find(u => u.id === app.unitId);
+          const property = unit ? allProperties.find(p => p.id === unit.propertyId) : null;
           const tenant = allUsers.find(u => u.id === app.tenantId);
 
           return {

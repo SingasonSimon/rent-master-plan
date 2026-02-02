@@ -466,6 +466,24 @@ export const applicationsApi = {
     return { success: true, data: filtered };
   },
 
+  getByLandlord: async (landlordId: string): Promise<ApiResponse<Application[]>> => {
+    await delay(SIMULATED_DELAY);
+    const apps = getFromStorage<Application>(STORAGE_KEYS.APPLICATIONS);
+    const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);
+    const properties = getFromStorage<Property>(STORAGE_KEYS.PROPERTIES);
+    
+    // Get units belonging to this landlord
+    const landlordUnits = units.filter(unit => {
+      const property = properties.find(p => p.id === unit.propertyId);
+      return property?.landlordId === landlordId;
+    });
+    
+    const landlordUnitIds = landlordUnits.map(u => u.id);
+    const filtered = apps.filter(a => landlordUnitIds.includes(a.unitId));
+    
+    return { success: true, data: filtered };
+  },
+
   create: async (data: Omit<Application, 'id' | 'status' | 'landlordRecommendation' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Application>> => {
     await delay(SIMULATED_DELAY);
     const apps = getFromStorage<Application>(STORAGE_KEYS.APPLICATIONS);
@@ -509,14 +527,61 @@ export const applicationsApi = {
     apps[index] = updated;
     saveToStorage(STORAGE_KEYS.APPLICATIONS, apps);
 
-    // If approved, verify logs
+    // If approved, create lease and verify logs
     if (status === 'approved') {
+      const application = apps[index];
+      
+      // Get unit details for lease creation
+      const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);
+      const unit = units.find(u => u.id === application.unitId);
+      
+      if (unit) {
+        // Create lease from approved application
+        const leases = getFromStorage<Lease>(STORAGE_KEYS.LEASES);
+        const newLease: Lease = {
+          id: `lease-${Date.now()}`,
+          unitId: application.unitId,
+          tenantId: application.tenantId,
+          startDate: application.moveInDate,
+          endDate: new Date(new Date(application.moveInDate).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year lease
+          rentAmount: unit.rentAmount,
+          depositAmount: unit.depositAmount,
+          paymentFrequency: 'monthly',
+          status: 'active',
+          terms: `Standard lease agreement for ${unit.unitNumber}. Rent: KES ${unit.rentAmount}/month`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        leases.unshift(newLease);
+        saveToStorage(STORAGE_KEYS.LEASES, leases);
+        
+        // Update unit status to occupied
+        const unitIndex = units.findIndex(u => u.id === application.unitId);
+        if (unitIndex !== -1) {
+          units[unitIndex] = { ...units[unitIndex], status: 'occupied', updatedAt: new Date().toISOString() };
+          saveToStorage(STORAGE_KEYS.UNITS, units);
+        }
+        
+        // Log lease creation
+        const activities = getFromStorage<Activity>(STORAGE_KEYS.ACTIVITIES);
+        activities.unshift({
+          id: `act-lease-${Date.now()}`,
+          type: 'lease_created',
+          userId: application.tenantId,
+          description: `Lease created for Unit ${unit.unitNumber} - ${newLease.startDate}`,
+          createdAt: new Date().toISOString(),
+        });
+        saveToStorage(STORAGE_KEYS.ACTIVITIES, activities);
+      }
+      
+      // Log application approval
       const activities = getFromStorage<Activity>(STORAGE_KEYS.ACTIVITIES);
       activities.unshift({
         id: `act-appr-${Date.now()}`,
         type: 'application_approved',
         userId: 'admin',
-        description: `Application ${id} approved`,
+        description: `Application ${id} approved and lease created`,
         createdAt: new Date().toISOString(),
       });
       saveToStorage(STORAGE_KEYS.ACTIVITIES, activities);
@@ -715,6 +780,24 @@ export const maintenanceApi = {
     await delay(SIMULATED_DELAY);
     const requests = getFromStorage<MaintenanceRequest>(STORAGE_KEYS.MAINTENANCE);
     const filtered = requests.filter(m => m.unitId === unitId);
+    return { success: true, data: filtered };
+  },
+
+  getByLandlord: async (landlordId: string): Promise<ApiResponse<MaintenanceRequest[]>> => {
+    await delay(SIMULATED_DELAY);
+    const requests = getFromStorage<MaintenanceRequest>(STORAGE_KEYS.MAINTENANCE);
+    const units = getFromStorage<Unit>(STORAGE_KEYS.UNITS);
+    const properties = getFromStorage<Property>(STORAGE_KEYS.PROPERTIES);
+    
+    // Get units belonging to this landlord
+    const landlordUnits = units.filter(unit => {
+      const property = properties.find(p => p.id === unit.propertyId);
+      return property?.landlordId === landlordId;
+    });
+    
+    const landlordUnitIds = landlordUnits.map(u => u.id);
+    const filtered = requests.filter(m => landlordUnitIds.includes(m.unitId));
+    
     return { success: true, data: filtered };
   },
 

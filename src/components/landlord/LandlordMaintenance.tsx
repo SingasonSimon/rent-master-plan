@@ -30,7 +30,7 @@ import {
 import { Wrench, Clock, CheckCircle2, XCircle, Eye, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { maintenanceApi, unitApi, propertyApi, userApi } from '@/lib/api';
+import { maintenanceApi, unitApi, propertyApi, userApi, maintenanceApi as maintenanceApiWithLandlord } from '@/lib/api';
 import { formatDate } from '@/lib/mock-data';
 import type { MaintenanceRequest, MaintenanceStatus, MaintenancePriority } from '@/types';
 
@@ -72,33 +72,26 @@ export default function LandlordMaintenance() {
       if (!user) return;
       setIsLoading(true);
       try {
-        // 1. Get landlord's properties
-        const propsRes = await propertyApi.getByLandlord(user.id);
-        if (!propsRes.success || !propsRes.data) {
-          setRequests([]);
-          return;
-        }
-        const myPropertyIds = propsRes.data.map(p => p.id);
+        // Use the new getByLandlord function
+        const requestsRes = await maintenanceApiWithLandlord.getByLandlord(user.id);
+        const myRequests = requestsRes.data || [];
 
-        // 2. Get units for these properties
+        // Get all units for these requests
         const unitsRes = await unitApi.getAll();
         const allUnits = unitsRes.data || [];
-        const myUnits = allUnits.filter(u => myPropertyIds.includes(u.propertyId));
-        const myUnitIds = myUnits.map(u => u.id);
 
-        // 3. Get all maintenance requests
-        const requestsRes = await maintenanceApi.getAll();
-        const allRequests = requestsRes.data || [];
-        const myRequests = allRequests.filter(req => myUnitIds.includes(req.unitId));
+        // Get all properties for unit details
+        const propsRes = await propertyApi.getAll();
+        const allProperties = propsRes.data || [];
 
-        // 4. Get all users for tenant details
+        // Get all users for tenant details
         const usersRes = await userApi.getAll();
         const allUsers = usersRes.data || [];
 
-        // 5. Enrich requests
+        // Enrich requests
         const enriched: RequestWithDetails[] = myRequests.map(req => {
-          const unit = myUnits.find(u => u.id === req.unitId);
-          const property = unit ? propsRes.data?.find(p => p.id === unit.propertyId) : null;
+          const unit = allUnits.find(u => u.id === req.unitId);
+          const property = unit ? allProperties.find(p => p.id === unit.propertyId) : null;
           const tenant = allUsers.find(u => u.id === req.tenantId);
 
           return {
@@ -142,24 +135,15 @@ export default function LandlordMaintenance() {
     setIsSubmitting(true);
 
     try {
-      const updateData: any = { status: newStatus };
-
-      // Add comment if provided
-      if (newComment.trim()) {
-        updateData.comments = [
-          ...selectedRequest.comments,
-          {
-            id: `comment-${Date.now()}`,
-            userId: user?.id || 'landlord-001',
-            content: newComment,
-            createdAt: new Date().toISOString(),
-          },
-        ];
-      }
-
-      const res = await maintenanceApi.update(selectedRequest.id, updateData);
+      // Update status first
+      const res = await maintenanceApi.updateStatus(selectedRequest.id, newStatus);
 
       if (res.success) {
+        // Add comment if provided
+        if (newComment.trim()) {
+          await maintenanceApi.addComment(selectedRequest.id, newComment, user?.id || 'landlord-001');
+        }
+
         toast({
           title: 'Request Updated',
           description: 'The maintenance request has been updated successfully.',
